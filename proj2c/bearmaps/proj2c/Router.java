@@ -1,13 +1,20 @@
 package bearmaps.proj2c;
 
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import bearmaps.hw4.WeightedEdge;
+import bearmaps.hw4.WeirdSolver;
+
 /**
  * This class acts as a helper for the RoutingAPIHandler.
- * @author Josh Hug, ______
+ * @author Josh Hug, Siyuan Chen
  */
 public class Router {
 
@@ -24,10 +31,9 @@ public class Router {
      */
     public static List<Long> shortestPath(AugmentedStreetMapGraph g, double stlon, double stlat,
                                           double destlon, double destlat) {
-        //long src = g.closest(stlon, stlat);
-        //long dest = g.closest(destlon, destlat);
-        //return new WeirdSolver<>(g, src, dest, 20).solution();
-        return null;
+        long src = g.closest(stlon, stlat);
+        long dest = g.closest(destlon, destlat);
+        return new WeirdSolver<>(g, src, dest, 20).solution();
     }
 
     /**
@@ -35,12 +41,61 @@ public class Router {
      * @param g The graph to use.
      * @param route The route to translate into directions. Each element
      *              corresponds to a node from the graph in the route.
-     * @return A list of NavigatiionDirection objects corresponding to the input
+     * @return A list of NavigationDirection objects corresponding to the input
      * route.
      */
     public static List<NavigationDirection> routeDirections(AugmentedStreetMapGraph g, List<Long> route) {
-        /* fill in for part IV */
-        return null;
+        if (route.size() < 2) return null;
+
+        List<NavigationDirection> results = new ArrayList<>();
+        int direction = NavigationDirection.START;
+        NavigationDirection prevNd = null;
+        double prevBearing = 0;
+        String currWay;
+        String prevWay = "";
+        boolean begin = true;
+
+        for (int i = 1; i < route.size(); i++) {
+            long currLocation = route.get(i);
+            long prevLocation = route.get(i - 1);
+            NavigationDirection currNd = new NavigationDirection();
+            currNd.direction = direction;
+            currNd.distance = g.estimatedDistanceToGoal(prevLocation, currLocation);
+
+            currWay = getWayName(g, prevLocation, currLocation);
+            currNd.way = currWay;
+
+            double currBearing =
+                    NavigationDirection.bearing(g.lon(prevLocation), g.lon(currLocation),
+                            g.lat(prevLocation), g.lat(currLocation));
+            direction = NavigationDirection.getDirection(prevBearing, currBearing);
+
+            if (prevNd != null && prevNd.way.equals(currNd.way)) {
+                prevNd.distance += currNd.distance;
+            } else {
+                if (!begin)
+                    currNd.direction = direction;
+                prevNd = currNd;
+                results.add(currNd);
+            }
+            if (!currWay.equals(NavigationDirection.UNKNOWN_ROAD) && !prevWay.equals(currWay)) {
+                prevWay = currWay;
+                begin = false;
+            }
+            prevBearing = currBearing;
+        }
+        return results;
+    }
+
+    private static String getWayName(AugmentedStreetMapGraph g, long prevLocation, long currLocation) {
+        String currWay = "";
+        List<WeightedEdge<Long>> roads = g.neighbors(prevLocation);
+        for (WeightedEdge<Long> road : roads) {
+            if (road.to() == currLocation) {
+                currWay = road.getName();
+            }
+        }
+        return currWay;
     }
 
     /**

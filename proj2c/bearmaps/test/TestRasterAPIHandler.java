@@ -49,6 +49,8 @@ public class TestRasterAPIHandler {
                          + mapToString(params) + ".\n";
             checkParamsMap(msg, expected, actual);
         }
+
+
     }
 
     private List<Map<String, Double>> paramsFromFile() throws Exception {
